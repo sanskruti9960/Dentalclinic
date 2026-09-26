@@ -29,6 +29,12 @@
             <artifactId>spring-boot-starter-web</artifactId>
         </dependency>
 
+        <!-- Spring Boot Starter Thymeleaf for Server-Side Java Frontend Rendering -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-thymeleaf</artifactId>
+        </dependency>
+
         <!-- Spring Data JPA for Database Persistence (Hibernate ORM) -->
         <dependency>
             <groupId>org.springframework.boot</groupId>

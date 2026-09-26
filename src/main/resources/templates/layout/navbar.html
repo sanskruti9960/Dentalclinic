@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head th:fragment="head(title)">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title th:text="${title}">Smita Dental Clinic</title>
+    <!-- Tailwind CSS CDN for pristine enterprise UI matching exact React styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Plus Jakarta Sans', sans-serif; }
+        code, pre { font-family: 'JetBrains Mono', monospace; }
+    </style>
+</head>
+
+<body>
+    <!-- Top Floating Pill Navigation Bar Fragment -->
+    <header th:fragment="navbar" class="sticky top-0 z-30 pt-3 pb-2 px-3 sm:px-6">
+        <div class="max-w-7xl mx-auto">
+            <div class="bg-white/95 backdrop-blur-md border border-slate-200/80 shadow-xs rounded-full px-4 sm:px-6 py-2.5 flex items-center justify-between gap-3 transition-all">
+                
+                <!-- Brand Pill -->
+                <div class="flex items-center gap-2 px-3 py-1 rounded-full bg-slate-50 border border-slate-200/70 shadow-2xs">
+                    <div class="w-6 h-6 rounded-full bg-gradient-to-tr from-indigo-500 to-purple-500 flex items-center justify-center text-white text-xs font-black shadow-xs">
+                        🦷
+                    </div>
+                    <span class="font-extrabold text-slate-900 text-xs sm:text-sm tracking-wide">
+                        Smita Dental
+                    </span>
+                    <span class="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800">
+                        Java Spring MVC
+                    </span>
+                </div>
+
+                <!-- Navigation Pills -->
+                <nav class="hidden md:flex items-center gap-1.5 bg-slate-50/80 p-1 rounded-full border border-slate-200/50 text-xs font-semibold">
+                    <!-- Doctor Links -->
+                    <a th:href="@{/portal/doctor/schedule}"
+                       th:classappend="${activeTab == 'dr-schedule'} ? 'bg-white text-slate-900 shadow-xs font-bold' : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'"
+                       class="px-4 py-1.5 rounded-full transition flex items-center gap-1.5">
+                        <span>Master Schedule</span>
+                    </a>
+                    <a th:href="@{/portal/doctor/patients}"
+                       th:classappend="${activeTab == 'dr-patients'} ? 'bg-white text-slate-900 shadow-xs font-bold' : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'"
+                       class="px-4 py-1.5 rounded-full transition flex items-center gap-1.5">
+                        <span>Patient Directory</span>
+                    </a>
+                    <a th:href="@{/portal/doctor/billing}"
+                       th:classappend="${activeTab == 'dr-billing'} ? 'bg-white text-slate-900 shadow-xs font-bold' : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'"
+                       class="px-4 py-1.5 rounded-full transition flex items-center gap-1.5">
+                        <span>Billing & Ledger</span>
+                    </a>
+
+                    <!-- Patient Links -->
+                    <span class="text-slate-300 mx-1">|</span>
+                    <a th:href="@{/portal/patient/dashboard}"
+                       th:classappend="${activeTab == 'patient-dashboard'} ? 'bg-white text-slate-900 shadow-xs font-bold' : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'"
+                       class="px-4 py-1.5 rounded-full transition flex items-center gap-1.5">
+                        <span>Patient Portal</span>
+                    </a>
+                    <a th:href="@{/portal/patient/book}"
+                       th:classappend="${activeTab == 'patient-book'} ? 'bg-white text-slate-900 shadow-xs font-bold' : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'"
+                       class="px-4 py-1.5 rounded-full transition flex items-center gap-1.5 text-indigo-700">
+                        <span>Book Visit (Live Slots)</span>
+                    </a>
+                </nav>
+
+                <!-- Doctor / User Chip -->
+                <div class="flex items-center gap-2">
+                    <div class="px-3 py-1 rounded-full bg-slate-50 border border-slate-200 text-xs font-medium text-slate-700 flex items-center gap-1.5">
+                        <span class="w-2 h-2 rounded-full bg-purple-500"></span>
+                        <span class="font-bold text-slate-900">Dr. Smita Bevle</span>
+                        <span class="text-[10px] text-slate-400 font-mono">MMC D-48921</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </header>
+</body>
+</html>

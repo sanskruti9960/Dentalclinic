@@ -139,7 +139,20 @@ Exposes RESTful endpoints conforming to HTTP standards (GET, POST, PUT, PATCH).
 
 ---
 
-### 8. Configuration & Seeds (`com.dentalclinic.config`)
+### 8. Java Full-Stack Frontend Controller (`com.dentalclinic.controller.web`) & Thymeleaf Templates
+
+Spring Boot's official and standard server-side rendering (SSR) web presentation layer:
+
+| File Name | Location | Purpose & Mentor Explanation |
+|---|---|---|
+| `WebPortalController.java` | `com.dentalclinic.controller.web` | Spring MVC `@Controller` that binds Java domain objects (`AppointmentSlotDto`, `Patient`, `Invoice`) into `org.springframework.ui.Model` and returns HTML view templates (`"doctor/schedule"`, `"patient/book"`, etc.). |
+| `navbar.html` | `src/main/resources/templates/layout/` | Reusable Thymeleaf HTML5 header fragment (`th:fragment="navbar"`) implementing the exact same floating pill navigation bar and brand identity. |
+| `book.html` | `src/main/resources/templates/patient/` | Real-time operatory slot booking template. Iterates over Java `AppointmentSlotDto` using `th:each`, dynamically applying red badges for busy chairs and green for available slots with zero UI/UX deviation. |
+| `schedule.html` | `src/main/resources/templates/doctor/` | Doctor's operatory schedule board rendering today's clinical procedures and chair assignments. |
+
+---
+
+### 9. Configuration & Seeds (`com.dentalclinic.config`)
 
 | File Name | Purpose |
 |---|---|
@@ -148,19 +161,22 @@ Exposes RESTful endpoints conforming to HTTP standards (GET, POST, PUT, PATCH).
 
 ---
 
-## 💡 Top 5 Questions Mentors Ask & How to Answer
+## 💡 Top 6 Questions Mentors Ask & How to Answer
 
-### Q1: "How does the system prevent double-booking on the same dental chair?"
+### Q1: "How did you implement the frontend in Java?"
+> **Answer:** In modern enterprise Java, frontends are implemented using **Spring Boot MVC** with the **Thymeleaf** templating engine (`spring-boot-starter-thymeleaf`). In `WebPortalController.java`, standard `@Controller` methods receive HTTP requests, fetch data through our Java services (`AppointmentService`, `PatientService`), and inject domain entities into Spring's `Model` interface (`model.addAttribute("slots", ...)`). The Thymeleaf template engine executes on the Java Virtual Machine (JVM), dynamically binds model variables (`th:each`, `th:text`, `th:classappend`), and streams standards-compliant HTML5 with Tailwind CSS to the browser — preserving the exact modern, clean UI/UX without requiring third-party runtime dependencies.
+
+### Q2: "How does the system prevent double-booking on the same dental chair?"
 > **Answer:** In `AppointmentServiceImpl.java`, the `bookAppointment()` method executes a conflict query `appointmentRepository.findByChairAndDate()`. If any existing appointment on that chair and date shares the requested time and is not cancelled, it throws an `IllegalStateException`, rejecting the duplicate booking. Furthermore, `getDoctorScheduleSlots()` returns `AppointmentSlotDto` indicating whether each slot is already occupied so patients can clearly see the doctor's busy schedule before booking.
 
-### Q2: "How is the Dental Chart (Odontogram) modeled in the relational database?"
+### Q3: "How is the Dental Chart (Odontogram) modeled in the relational database?"
 > **Answer:** We have a `ToothRecord` entity mapped to the `tooth_records` table with a composite unique constraint `(patient_id, tooth_number)`. Tooth numbers range from 1 to 32 (FDI / Universal adult notation). When a new patient registers in `PatientServiceImpl.java`, it initializes 32 `ToothRecord` entries with default status `HEALTHY`. When the doctor marks Caries, RCT, or Crown, `updateToothCondition()` updates that specific tooth record.
 
-### Q3: "What design pattern is used between the Controller and the Database?"
+### Q4: "What design pattern is used between the Controller and the Database?"
 > **Answer:** We use the **Repository Pattern** and **Service Layer Pattern**. The Controller delegates to the Service interface (e.g. `AppointmentService`), which encapsulates business rules and transaction boundaries with `@Transactional`. The Service interacts with `AppointmentRepository`, which extends Spring Data JPA's `JpaRepository` to abstract low-level JDBC and SQL generation.
 
-### Q4: "How does Role-Based Access Control (RBAC) work?"
+### Q5: "How does Role-Based Access Control (RBAC) work?"
 > **Answer:** We use `UserRole` enum (`DOCTOR` vs `PATIENT`). When a user logs in, the `AuthResponse` returns their role and linked profile ID (`patientId`). In Spring Security (`SecurityConfig.java`), endpoints can be restricted by role. In notifications, the system dispatches alerts targeted specifically to `DOCTOR`, `PATIENT`, or `BOTH`.
 
-### Q5: "How are financial invoices and partial payments tracked?"
+### Q6: "How are financial invoices and partial payments tracked?"
 > **Answer:** In `Invoice.java`, we maintain `grandTotal`, `amountPaid`, and `balanceDue`. When a payment is recorded via `BillingServiceImpl.recordPayment()`, `amountPaid` is incremented and `balanceDue` is recalculated. If `balanceDue == 0`, status changes to `PAID`; if partially paid, to `PARTIAL`. The patient's running total in `Patient.java` (`balanceDue` and `totalSpent`) is also updated atomically within the same database transaction.

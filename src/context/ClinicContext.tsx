@@ -61,10 +61,6 @@ interface ClinicContextType {
   // Modals & Printable Previews
   isNewAppointmentModalOpen: boolean;
   setIsNewAppointmentModalOpen: (open: boolean) => void;
-  isNewPatientModalOpen: boolean;
-  setIsNewPatientModalOpen: (open: boolean) => void;
-  isNewInvoiceModalOpen: boolean;
-  setIsNewInvoiceModalOpen: (open: boolean) => void;
   activePrintInvoice: Invoice | null;
   setActivePrintInvoice: (inv: Invoice | null) => void;
   activePrintPrescription: Prescription | null;
@@ -203,8 +199,6 @@ export const ClinicProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   // Modals & Print state
   const [isNewAppointmentModalOpen, setIsNewAppointmentModalOpen] = useState(false);
-  const [isNewPatientModalOpen, setIsNewPatientModalOpen] = useState(false);
-  const [isNewInvoiceModalOpen, setIsNewInvoiceModalOpen] = useState(false);
   const [activePrintInvoice, setActivePrintInvoice] = useState<Invoice | null>(null);
   const [activePrintPrescription, setActivePrintPrescription] = useState<Prescription | null>(null);
   const [isNotificationDrawerOpen, setIsNotificationDrawerOpen] = useState(false);
@@ -885,10 +879,6 @@ export const ClinicProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         visibleNotifications,
         isNewAppointmentModalOpen,
         setIsNewAppointmentModalOpen,
-        isNewPatientModalOpen,
-        setIsNewPatientModalOpen,
-        isNewInvoiceModalOpen,
-        setIsNewInvoiceModalOpen,
         activePrintInvoice,
         setActivePrintInvoice,
         activePrintPrescription,

@@ -21,7 +21,7 @@ import {
 interface JavaFileEntry {
   path: string;
   name: string;
-  category: 'Configuration' | 'Model / Entity' | 'Repository' | 'Service Layer' | 'REST Controller' | 'Data Transfer Object (DTO)' | 'Database SQL';
+  category: 'Configuration' | 'Model / Entity' | 'Repository' | 'Service Layer' | 'REST Controller' | 'Java Frontend / Web Controller' | 'Thymeleaf Java Template' | 'Data Transfer Object (DTO)' | 'Database SQL';
   description: string;
   mentorHighlights: string[];
   vivaQuestions: { q: string; a: string }[];
@@ -518,6 +518,134 @@ public class SecurityConfig {
 }`
   },
   {
+    path: 'src/main/java/com/dentalclinic/controller/web/WebPortalController.java',
+    name: 'WebPortalController.java',
+    category: 'Java Frontend / Web Controller',
+    description: 'Spring MVC Web Controller rendering server-side Java Frontend views using Thymeleaf and Spring UI Model.',
+    mentorHighlights: [
+      'Uses @Controller to bind Java domain models to Thymeleaf HTML templates',
+      'Injects AppointmentSlotDto into org.springframework.ui.Model for occupied schedule visualization',
+      'Provides SSR endpoints for Doctor Schedule, Patient Booking, Dental Records, and Invoicing'
+    ],
+    vivaQuestions: [
+      {
+        q: 'How does Spring MVC render Java frontends differently from REST APIs?',
+        a: '@RestController returns raw JSON data for client apps. In contrast, @Controller returns template view names (e.g. "patient/book"). The Spring ThymeleafViewResolver binds the Java Model attributes (e.g. model.addAttribute("slots", ...)) to server-rendered HTML5 before sending it to the browser.'
+      },
+      {
+        q: 'Can the application support both Java SSR Frontend and modern SPA simultaneously?',
+        a: 'Yes! Spring Boot natively supports dual architecture: WebPortalController handles /portal/** returning server-rendered Thymeleaf HTML views, while AppointmentController and PatientController handle /api/** returning JSON.'
+      }
+    ],
+    code: `package com.dentalclinic.controller.web;
+
+import com.dentalclinic.dto.AppointmentSlotDto;
+import com.dentalclinic.model.*;
+import com.dentalclinic.service.*;
+import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.stereotype.Controller;
+import org.springframework.ui.Model;
+import org.springframework.web.bind.annotation.*;
+
+import java.time.LocalDate;
+import java.util.List;
+
+@Controller
+@RequestMapping("/portal")
+public class WebPortalController {
+
+    private final PatientService patientService;
+    private final AppointmentService appointmentService;
+    private final BillingService billingService;
+
+    public WebPortalController(PatientService patientService,
+                               AppointmentService appointmentService,
+                               BillingService billingService) {
+        this.patientService = patientService;
+        this.appointmentService = appointmentService;
+        this.billingService = billingService;
+    }
+
+    /**
+     * Patient Live Schedule Booking View
+     * Injects doctor's occupied schedule into the Java Model
+     */
+    @GetMapping("/patient/book")
+    public String showPatientBookAppointment(
+            @RequestParam(value = "patientId", defaultValue = "pat-101") String patientId,
+            @RequestParam(value = "date", required = false)
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
+            Model model) {
+        LocalDate queryDate = (date != null) ? date : LocalDate.now();
+        List<AppointmentSlotDto> doctorSlots = appointmentService.getDoctorScheduleSlots(queryDate);
+
+        model.addAttribute("selectedDate", queryDate);
+        model.addAttribute("slots", doctorSlots);
+        model.addAttribute("activeTab", "patient-book");
+
+        return "patient/book";
+    }
+
+    /**
+     * Doctor Master Operatory Schedule View
+     */
+    @GetMapping("/doctor/schedule")
+    public String showDoctorSchedule(Model model) {
+        LocalDate today = LocalDate.now();
+        model.addAttribute("appointments", appointmentService.getAppointmentsByDate(today));
+        model.addAttribute("slots", appointmentService.getDoctorScheduleSlots(today));
+        return "doctor/schedule";
+    }
+}`
+  },
+  {
+    path: 'src/main/resources/templates/patient/book.html',
+    name: 'book.html (Thymeleaf Java View)',
+    category: 'Thymeleaf Java Template',
+    description: 'Thymeleaf HTML5 Server-Side Java Template rendering Dr. Smita\'s occupied schedule across Chairs 1, 2, 3.',
+    mentorHighlights: [
+      'Uses th:each to iterate over Java AppointmentSlotDto objects passed from Spring Model',
+      'Dynamic styling via th:classappend distinguishing occupied (red) from open (green) chair slots',
+      'Zero change to UX: identical pill navigation and operatory chair grid as the live app'
+    ],
+    vivaQuestions: [
+      {
+        q: 'What is Thymeleaf and how does it execute in Java?',
+        a: 'Thymeleaf is a natural Java templating engine for Spring Boot. It processes HTML files on the Java virtual machine (JVM), evaluates expressions like \${slots} and th:if, replaces mock placeholders with real database records, and streams standards-compliant HTML5 to the client.'
+      }
+    ],
+    code: `<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{layout/navbar :: head('Smita Dental - Book Visit')}"></head>
+<body class="bg-[#f8fafc] text-slate-900 min-h-screen flex flex-col font-sans">
+    
+    <!-- Top Floating Pill Navigation Bar (Java Fragment) -->
+    <header th:replace="~{layout/navbar :: navbar}"></header>
+
+    <main class="flex-1 max-w-7xl w-full mx-auto p-6 space-y-6">
+        
+        <!-- Live Operatory Slots: Iterating over Java Model Attributes -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            
+            <!-- Chair 1 (Surgery & Implants) -->
+            <div class="bg-white rounded-3xl border border-slate-200 p-5 shadow-2xs space-y-3">
+                <h3 class="font-extrabold text-sm text-slate-900">Operatory Chair 1</h3>
+
+                <div th:each="slot : \${slots}" th:if="\${slot.chair == 1}"
+                     class="p-3 rounded-2xl border flex items-center justify-between text-xs"
+                     th:classappend="\${slot.occupied} ? 'bg-rose-50 border-rose-200 text-rose-900' : 'bg-emerald-50 border-emerald-200 text-emerald-900'">
+                    <span class="font-mono font-bold" th:text="\${slot.timeSlot}">10:30 AM</span>
+                    <span th:if="\${slot.occupied}" class="px-2 py-0.5 rounded-full bg-rose-200 font-extrabold">Occupied</span>
+                    <span th:unless="\${slot.occupied}" class="px-2 py-0.5 rounded-full bg-emerald-200 font-extrabold">Available</span>
+                </div>
+            </div>
+
+        </div>
+    </main>
+</body>
+</html>`
+  },
+  {
     path: 'src/main/resources/schema.sql',
     name: 'schema.sql',
     category: 'Database SQL',
@@ -707,6 +835,8 @@ export const JavaMentorView: React.FC = () => {
                         file.category === 'Model / Entity' ? 'bg-emerald-100 text-emerald-800' :
                         file.category === 'Service Layer' ? 'bg-blue-100 text-blue-800' :
                         file.category === 'REST Controller' ? 'bg-purple-100 text-purple-800' :
+                        file.category === 'Java Frontend / Web Controller' ? 'bg-teal-100 text-teal-800' :
+                        file.category === 'Thymeleaf Java Template' ? 'bg-pink-100 text-pink-800' :
                         'bg-slate-100 text-slate-700'
                       }`}>
                         {file.category}
