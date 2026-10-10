@@ -175,6 +175,27 @@ export interface InvoiceItem {
 export type PaymentStatus = 'paid' | 'partial' | 'unpaid';
 export type PaymentMethod = 'cash' | 'credit-card' | 'debit-card' | 'upi' | 'insurance' | 'bank-transfer';
 
+export type DemoPaymentStatus = 'Successful' | 'Failed' | 'Cancelled';
+export type DemoPaymentMethod = 'UPI' | 'QR Code' | 'Debit/Credit Card' | 'Net Banking';
+export type DemoScenario = 'success' | 'failed' | 'cancelled';
+
+export interface DemoPaymentRecord {
+  id: string;
+  demoReference: string; // Transaction reference e.g. TXN-2026-X8F9Q2
+  invoiceId: string;
+  invoiceNumber: string;
+  patientId: string;
+  patientName: string;
+  amount: number;
+  currency: 'INR';
+  timestamp: string;
+  paymentMethod: DemoPaymentMethod;
+  status: DemoPaymentStatus;
+  scenarioTested: DemoScenario;
+  failureReason?: string;
+  isDemo?: boolean;
+}
+
 export interface Invoice {
   id: string;
   invoiceNumber: string;
@@ -196,6 +217,11 @@ export interface Invoice {
   transactionId?: string;
   settledVia?: 'phonepe' | 'gpay' | 'paytm' | 'upi' | 'card' | 'netbanking' | 'cash';
   settledAt?: string;
+  // Demonstration Gateway fields (cleanly segregated)
+  isDemoPaid?: boolean;
+  demoPaymentReference?: string;
+  demoPaidAt?: string;
+  demoPaymentMethod?: DemoPaymentMethod;
 }
 
 export interface SimulatedNotification {
@@ -218,5 +244,5 @@ export interface ToastMessage {
   type?: 'success' | 'info' | 'warning' | 'error';
 }
 
-export type DoctorTabId = 'dr-schedule' | 'dr-patients' | 'dr-billing' | 'dr-analytics' | 'java-mentor';
-export type PatientTabId = 'patient-dashboard' | 'patient-book' | 'patient-records' | 'patient-billing' | 'java-mentor';
+export type DoctorTabId = 'dr-schedule' | 'dr-patients' | 'dr-billing' | 'dr-analytics';
+export type PatientTabId = 'patient-dashboard' | 'patient-book' | 'patient-records' | 'patient-billing';

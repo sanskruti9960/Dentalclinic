@@ -53,18 +53,25 @@
             <artifactId>spring-boot-starter-validation</artifactId>
         </dependency>
 
-        <!-- H2 Database for Zero-Config In-Memory Embedded Testing & Viva Demo -->
-        <dependency>
-            <groupId>com.h2database</groupId>
-            <artifactId>h2</artifactId>
-            <scope>runtime</scope>
-        </dependency>
-
-        <!-- PostgreSQL Driver for Production Enterprise Deployment -->
+        <!-- PostgreSQL Database Driver (Enterprise Relational Storage) -->
         <dependency>
             <groupId>org.postgresql</groupId>
             <artifactId>postgresql</artifactId>
             <scope>runtime</scope>
+        </dependency>
+
+        <!-- Official Razorpay Java SDK for Secure Payment Gateway Integration -->
+        <dependency>
+            <groupId>com.razorpay</groupId>
+            <artifactId>razorpay-java</artifactId>
+            <version>1.4.6</version>
+        </dependency>
+
+        <!-- JSON library for Razorpay SDK payload parsing -->
+        <dependency>
+            <groupId>org.json</groupId>
+            <artifactId>json</artifactId>
+            <version>20240303</version>
         </dependency>
 
         <!-- SpringDoc OpenAPI (Swagger 3 UI) for Interactive API Testing -->

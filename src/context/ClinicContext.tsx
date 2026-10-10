@@ -18,7 +18,8 @@ import {
   PatientProfileInput,
   PatientRegistrationInput,
   SimulatedNotification,
-  ToastMessage
+  ToastMessage,
+  DemoPaymentRecord
 } from '../types/clinic';
 import {
   INITIAL_USERS,
@@ -107,6 +108,12 @@ interface ClinicContextType {
     settledVia?: 'phonepe' | 'gpay' | 'paytm' | 'upi' | 'card' | 'netbanking' | 'cash'
   ) => void;
 
+  // Demo Payment Gateway System
+  demoTransactions: DemoPaymentRecord[];
+  recordDemoPayment: (record: DemoPaymentRecord) => { success: boolean; error?: string };
+  activeDemoReceipt: DemoPaymentRecord | null;
+  setActiveDemoReceipt: (rec: DemoPaymentRecord | null) => void;
+
   // Notifications & Toasts
   addNotification: (notif: Omit<SimulatedNotification, 'id' | 'timestamp' | 'status'>) => void;
   clearNotifications: () => void;
@@ -128,8 +135,27 @@ const STORAGE_KEYS = {
   NOTIFICATIONS: 'sdc_notifications_v5',
   DOCTOR_TAB: 'sdc_doctor_tab_v4',
   PATIENT_TAB: 'sdc_patient_tab_v4',
-  SELECTED_PATIENT: 'sdc_selected_patient_v4'
+  SELECTED_PATIENT: 'sdc_selected_patient_v4',
+  DEMO_TRANSACTIONS: 'sdc_gateway_transactions_v3'
 };
+
+const INITIAL_DEMO_TRANSACTIONS: DemoPaymentRecord[] = [
+  {
+    id: 'pay-seed-1',
+    demoReference: 'TXN-2026-X8F9Q2',
+    invoiceId: 'inv-2',
+    invoiceNumber: 'SDC-INV-2026-082',
+    patientId: 'pat-2',
+    patientName: 'Priya Mehta',
+    amount: 300,
+    currency: 'INR',
+    timestamp: '2026-09-24T14:30:00.000Z',
+    paymentMethod: 'UPI',
+    status: 'Successful',
+    scenarioTested: 'success',
+    isDemo: true
+  }
+];
 
 export const ClinicProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   // Users state
@@ -217,6 +243,17 @@ export const ClinicProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const [activePrintPrescription, setActivePrintPrescription] = useState<Prescription | null>(null);
   const [isNotificationDrawerOpen, setIsNotificationDrawerOpen] = useState(false);
 
+  // Demo Payment Gateway Records & Receipts
+  const [demoTransactions, setDemoTransactions] = useState<DemoPaymentRecord[]>(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEYS.DEMO_TRANSACTIONS);
+      return saved ? JSON.parse(saved) : INITIAL_DEMO_TRANSACTIONS;
+    } catch {
+      return INITIAL_DEMO_TRANSACTIONS;
+    }
+  });
+  const [activeDemoReceipt, setActiveDemoReceipt] = useState<DemoPaymentRecord | null>(null);
+
   // Toasts
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
 
@@ -252,6 +289,10 @@ export const ClinicProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   useEffect(() => {
     localStorage.setItem(STORAGE_KEYS.NOTIFICATIONS, JSON.stringify(notifications));
   }, [notifications]);
+
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEYS.DEMO_TRANSACTIONS, JSON.stringify(demoTransactions));
+  }, [demoTransactions]);
 
   // Toast Helpers
   const addToast = (title: string, message?: string, type: 'success' | 'info' | 'warning' | 'error' = 'info') => {
@@ -1109,6 +1150,101 @@ export const ClinicProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
   };
 
+  const recordDemoPayment = (record: DemoPaymentRecord): { success: boolean; error?: string } => {
+    // 1. Always record in transaction history
+    setDemoTransactions((prev) => [record, ...prev]);
+
+    // 2. If outcome is Successful, update invoice
+    if (record.status === 'Successful' || (record.status as any) === 'Demo Successful') {
+      let targetInv: Invoice | undefined;
+
+      setInvoices((prev) =>
+        prev.map((inv) => {
+          if (inv.id === record.invoiceId) {
+            const newPaid = inv.amountPaid + record.amount;
+            const newBalance = Math.max(0, inv.grandTotal - newPaid);
+            targetInv = {
+              ...inv,
+              amountPaid: newPaid,
+              balanceDue: newBalance,
+              status: 'paid',
+              isDemoPaid: true,
+              demoPaymentReference: record.demoReference,
+              demoPaidAt: record.timestamp,
+              demoPaymentMethod: record.paymentMethod,
+              transactionId: record.demoReference,
+              settledVia: 'upi',
+              settledAt: record.timestamp
+            };
+            return targetInv;
+          }
+          return inv;
+        })
+      );
+
+      if (targetInv) {
+        setPatients((prev) =>
+          prev.map((p) => {
+            if (p.id === targetInv!.patientId) {
+              return {
+                ...p,
+                totalSpent: p.totalSpent + record.amount,
+                balanceDue: Math.max(0, p.balanceDue - record.amount)
+              };
+            }
+            return p;
+          })
+        );
+
+        // Real-time notification for Patient
+        addNotification({
+          type: 'sms',
+          recipientName: targetInv.patientName,
+          recipientContact: targetInv.patientPhone,
+          title: 'Payment Confirmation - Smita Dental Clinic',
+          message: `Payment of ₹${record.amount.toFixed(2)} completed successfully for Invoice #${targetInv.invoiceNumber} via ${record.paymentMethod}. Ref: ${record.demoReference}. Balance: ₹0.00.`,
+          patientId: targetInv.patientId,
+          targetRole: 'patient'
+        });
+
+        // Real-time notification for Doctor / Admin
+        addNotification({
+          type: 'sms',
+          recipientName: 'Dr. Smita Bevle',
+          recipientContact: '+91 98200-SMITA',
+          title: `Payment Received (Ref: ${record.demoReference})`,
+          message: `Patient ${targetInv.patientName} completed payment of ₹${record.amount.toFixed(2)} for Invoice #${targetInv.invoiceNumber} via ${record.paymentMethod}. Ledger updated.`,
+          patientId: targetInv.patientId,
+          targetRole: 'doctor'
+        });
+
+        addToast(
+          'Payment Successful',
+          `₹${record.amount.toFixed(2)} received (Ref: ${record.demoReference})`,
+          'success'
+        );
+      }
+      return { success: true };
+    }
+
+    // 3. If outcome is Failed or Cancelled:
+    if (record.status === 'Failed' || (record.status as any) === 'Demo Failed') {
+      addToast(
+        'Payment Declined',
+        `Payment was declined for Invoice #${record.invoiceNumber} (Ref: ${record.demoReference})`,
+        'error'
+      );
+    } else {
+      addToast(
+        'Payment Cancelled',
+        `Payment session was cancelled for Invoice #${record.invoiceNumber} (Ref: ${record.demoReference})`,
+        'warning'
+      );
+    }
+
+    return { success: false, error: record.failureReason };
+  };
+
   const resetToDemoData = () => {
     localStorage.clear();
     setUsers(INITIAL_USERS);
@@ -1118,6 +1254,8 @@ export const ClinicProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     setInvoices(INITIAL_INVOICES);
     setPrescriptions(INITIAL_PRESCRIPTIONS);
     setNotifications(INITIAL_NOTIFICATIONS);
+    setDemoTransactions(INITIAL_DEMO_TRANSACTIONS);
+    setActiveDemoReceipt(null);
     setSelectedPatientId(INITIAL_PATIENTS[0].id);
     setDoctorTabState('dr-schedule');
     setPatientTabState('patient-dashboard');
@@ -1184,6 +1322,10 @@ export const ClinicProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         updateInvoice,
         deleteInvoice,
         recordPayment,
+        demoTransactions,
+        recordDemoPayment,
+        activeDemoReceipt,
+        setActiveDemoReceipt,
         addNotification,
         clearNotifications,
         toasts,

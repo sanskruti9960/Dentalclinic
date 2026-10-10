@@ -114,9 +114,9 @@ export const PrintInvoiceModal: React.FC = () => {
                     <td className="py-2.5 px-4 text-slate-400 font-mono">{idx + 1}</td>
                     <td className="py-2.5 px-4 font-semibold text-slate-900">{item.description}</td>
                     <td className="py-2.5 px-4 text-center text-slate-600">{item.quantity}</td>
-                    <td className="py-2.5 px-4 text-right font-mono text-slate-600">${item.unitPrice.toFixed(2)}</td>
+                    <td className="py-2.5 px-4 text-right font-mono text-slate-600">₹{item.unitPrice.toFixed(2)}</td>
                     <td className="py-2.5 px-4 text-right font-mono font-bold text-slate-900">
-                      ${item.total.toFixed(2)}
+                      ₹{item.total.toFixed(2)}
                     </td>
                   </tr>
                 ))}
@@ -125,29 +125,38 @@ export const PrintInvoiceModal: React.FC = () => {
           </div>
 
           {/* Calculations */}
-          <div className="flex justify-end">
+          <div className="flex justify-between items-start">
+            <div className="text-[11px] text-slate-500 max-w-xs space-y-1">
+              {(inv.isDemoPaid || inv.demoPaymentReference || inv.transactionId) && (
+                <div className="p-2.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-900">
+                  <span className="font-bold block text-[10px] uppercase">Online Payment Settled</span>
+                  <span>Transaction Reference: {inv.demoPaymentReference || inv.transactionId}</span>
+                </div>
+              )}
+            </div>
+
             <div className="w-64 space-y-1.5 text-xs font-mono">
               <div className="flex justify-between text-slate-600">
                 <span>Subtotal:</span>
-                <span>${inv.subtotal.toFixed(2)}</span>
+                <span>₹{inv.subtotal.toFixed(2)}</span>
               </div>
               {inv.discount > 0 && (
                 <div className="flex justify-between text-emerald-700 font-bold">
                   <span>Courtesy Discount:</span>
-                  <span>-${inv.discount.toFixed(2)}</span>
+                  <span>-₹{inv.discount.toFixed(2)}</span>
                 </div>
               )}
               <div className="flex justify-between text-slate-900 font-black text-sm border-t border-slate-200 pt-1.5">
                 <span>Grand Total:</span>
-                <span>${inv.grandTotal.toFixed(2)}</span>
+                <span>₹{inv.grandTotal.toFixed(2)}</span>
               </div>
               <div className="flex justify-between text-emerald-700 font-bold">
                 <span>Amount Paid:</span>
-                <span>${inv.amountPaid.toFixed(2)}</span>
+                <span>₹{inv.amountPaid.toFixed(2)}</span>
               </div>
               <div className="flex justify-between text-rose-700 font-black text-sm border-t border-slate-200 pt-1.5">
                 <span>Balance Due:</span>
-                <span>${inv.balanceDue.toFixed(2)}</span>
+                <span>₹{inv.balanceDue.toFixed(2)}</span>
               </div>
             </div>
           </div>

@@ -19,7 +19,6 @@ import { PatientDashboardView } from './components/patient/PatientDashboardView'
 import { PatientBookAppointmentView } from './components/patient/PatientBookAppointmentView';
 import { PatientRecordsView } from './components/patient/PatientRecordsView';
 import { PatientBillingView } from './components/patient/PatientBillingView';
-import { JavaMentorView } from './components/common/JavaMentorView';
 
 export const App: React.FC = () => {
   const { currentUser, currentRole, doctorTab, patientTab } = useClinic();
@@ -49,15 +48,9 @@ export const App: React.FC = () => {
       {/* Top Floating Pill Navigation Bar (Single navigation bar as requested) */}
       <Navbar />
 
-      {/* Main Expansive Content Area (No sidebar, matching image.png clean layout) */}
+      {/* Main Expansive Content Area (No sidebar, matching clean layout) */}
       <main className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8 min-w-0">
-        {/* If Java Mentor presentation mode is active */}
-        {((currentRole === 'doctor' && doctorTab === 'java-mentor') ||
-          (currentRole === 'patient' && patientTab === 'java-mentor')) && (
-          <JavaMentorView />
-        )}
-
-        {currentRole === 'doctor' && doctorTab !== 'java-mentor' && (
+        {currentRole === 'doctor' && (
           /* Doctor Portal Views - Exclusively for Dr. Smita Bevle */
           <>
             {doctorTab === 'dr-analytics' && <DoctorOverviewView />}
@@ -67,7 +60,7 @@ export const App: React.FC = () => {
           </>
         )}
 
-        {currentRole === 'patient' && patientTab !== 'java-mentor' && (
+        {currentRole === 'patient' && (
           /* Patient Portal Views - Patient only sees his/her own data */
           <>
             {patientTab === 'patient-dashboard' && <PatientDashboardView />}

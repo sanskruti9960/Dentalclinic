@@ -16,8 +16,7 @@ import {
   Activity,
   Users,
   CheckCircle2,
-  Clock,
-  Coffee
+  Clock
 } from 'lucide-react';
 import { PatientTabId, DoctorTabId } from '../../types/clinic';
 
@@ -202,22 +201,6 @@ export const Navbar: React.FC = () => {
                 </button>
               </>
             )}
-
-            {/* Java Code & Mentor Deck Button (Universal for both Doctor and Patient roles) */}
-            <button
-              onClick={() => {
-                if (isDoctor) handleSelectDoctorTab('java-mentor');
-                else handleSelectPatientTab('java-mentor');
-              }}
-              className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition cursor-pointer flex items-center gap-1.5 border ${
-                (isDoctor && doctorTab === 'java-mentor') || (!isDoctor && patientTab === 'java-mentor')
-                  ? 'bg-amber-600 text-white border-amber-600 shadow-xs font-extrabold'
-                  : 'bg-amber-50 text-amber-900 border-amber-200/90 hover:bg-amber-100/80 shadow-2xs'
-              }`}
-            >
-              <Coffee className="w-3.5 h-3.5 text-amber-700" />
-              <span>☕ Java &amp; Mentor Guide</span>
-            </button>
           </nav>
 
           {/* Right: Notifications, User Profile & Soft Accent Pill Action Button */}
@@ -375,19 +358,6 @@ export const Navbar: React.FC = () => {
                   </button>
                 </>
               )}
-
-              {/* Mobile Java Guide Pill */}
-              <button
-                onClick={() => {
-                  if (isDoctor) handleSelectDoctorTab('java-mentor');
-                  else handleSelectPatientTab('java-mentor');
-                  setIsMobileMenuOpen(false);
-                }}
-                className="p-2.5 rounded-2xl text-xs font-bold flex items-center gap-2 cursor-pointer transition bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200"
-              >
-                <Coffee className="w-4 h-4 text-amber-700" />
-                <span>☕ Java Architecture &amp; Mentor Guide</span>
-              </button>
             </div>
 
             <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-xs">
