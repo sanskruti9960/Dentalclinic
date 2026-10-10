@@ -27,7 +27,17 @@ export const App: React.FC = () => {
   // If user is not signed in, redirect directly to the Authentication & Intake Page
   if (!currentUser) {
     return (
-      <div className="min-h-screen bg-slate-50 text-slate-900 font-sans antialiased selection:bg-indigo-500 selection:text-white">
+      <div className="min-h-screen bg-slate-50 text-slate-900 font-sans antialiased selection:bg-blue-600 selection:text-white">
+        <AuthPage />
+        <ToastContainer />
+      </div>
+    );
+  }
+
+  // If a patient account is created but profile is incomplete, gate them to Step 2
+  if (currentUser.role === 'patient' && !currentUser.isProfileComplete) {
+    return (
+      <div className="min-h-screen bg-slate-50 text-slate-900 font-sans antialiased selection:bg-blue-600 selection:text-white">
         <AuthPage />
         <ToastContainer />
       </div>

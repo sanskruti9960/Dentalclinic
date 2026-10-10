@@ -12,10 +12,15 @@ import {
   Trash2,
   FolderOpen,
   ArrowRight,
+  ArrowLeft,
   ShieldCheck,
   CheckCircle2,
   Pill,
-  Activity
+  Activity,
+  User,
+  Edit3,
+  Save,
+  X
 } from 'lucide-react';
 
 export const PatientRecordsView: React.FC = () => {
@@ -24,10 +29,22 @@ export const PatientRecordsView: React.FC = () => {
     prescriptions,
     setActivePrintPrescription,
     addPatientFile,
-    deletePatientFile
+    deletePatientFile,
+    updatePatientProfile,
+    setPatientTab
   } = useClinic();
 
-  const [activeTab, setActiveTab] = useState<'prescriptions' | 'odontogram' | 'notes' | 'files'>('prescriptions');
+  const [activeTab, setActiveTab] = useState<'prescriptions' | 'odontogram' | 'notes' | 'files' | 'profile'>('prescriptions');
+
+  // Profile editing state
+  const [isEditingProfile, setIsEditingProfile] = useState(false);
+  const [editPhone, setEditPhone] = useState('');
+  const [editAddress, setEditAddress] = useState('');
+  const [editEmergencyName, setEditEmergencyName] = useState('');
+  const [editEmergencyPhone, setEditEmergencyPhone] = useState('');
+  const [editEmergencyRelation, setEditEmergencyRelation] = useState('');
+  const [editBloodGroup, setEditBloodGroup] = useState('');
+  const [editMedicalAlerts, setEditMedicalAlerts] = useState<string[]>([]);
 
   // File upload state
   const [fileName, setFileName] = useState('');
@@ -59,6 +76,22 @@ export const PatientRecordsView: React.FC = () => {
 
   return (
     <div className="space-y-8 max-w-6xl mx-auto pb-12">
+      {/* Top Back Navigation Pill */}
+      <div className="flex items-center justify-between">
+        <button
+          type="button"
+          onClick={() => setPatientTab('patient-dashboard')}
+          className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white border border-slate-200/90 text-slate-700 hover:text-slate-900 hover:bg-slate-50 text-xs font-bold shadow-2xs transition cursor-pointer"
+        >
+          <ArrowLeft className="w-3.5 h-3.5" />
+          <span>Back to Dashboard</span>
+        </button>
+
+        <span className="text-xs font-bold text-slate-500">
+          Patient ID: <strong className="font-mono text-slate-800">{selectedPatient.patientIdCode}</strong>
+        </span>
+      </div>
+
       {/* Top Banner (Clean, modern rounded header matching image.png aesthetic) */}
       <div className="bg-white rounded-3xl sm:rounded-[2.5rem] border border-slate-200/80 p-6 sm:p-8 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-5">
         <div className="space-y-1">
@@ -128,6 +161,28 @@ export const PatientRecordsView: React.FC = () => {
             <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-slate-200 text-slate-700 font-mono">
               {myFiles.length}
             </span>
+          </button>
+
+          <button
+            onClick={() => {
+              setActiveTab('profile');
+              setIsEditingProfile(false);
+              setEditPhone(selectedPatient.phone);
+              setEditAddress(selectedPatient.address);
+              setEditEmergencyName(selectedPatient.emergencyContact?.name || '');
+              setEditEmergencyPhone(selectedPatient.emergencyContact?.phone || '');
+              setEditEmergencyRelation(selectedPatient.emergencyContact?.relation || 'Family');
+              setEditBloodGroup(selectedPatient.bloodGroup || 'O+');
+              setEditMedicalAlerts(selectedPatient.medicalAlerts || []);
+            }}
+            className={`px-4 py-2 rounded-full text-xs font-bold transition cursor-pointer flex items-center gap-1.5 ${
+              activeTab === 'profile'
+                ? 'bg-white text-slate-900 shadow-xs'
+                : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            <User className="w-3.5 h-3.5 text-indigo-600" />
+            <span>My Profile &amp; Info</span>
           </button>
         </div>
       </div>
@@ -355,6 +410,240 @@ export const PatientRecordsView: React.FC = () => {
                 </button>
               </div>
             ))}
+          </div>
+        </div>
+      )}
+
+      {/* TAB 5: My Profile & Intake Info */}
+      {activeTab === 'profile' && (
+        <div className="space-y-6">
+          <div className="bg-white rounded-3xl border border-slate-200/80 p-6 sm:p-8 shadow-xs">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-5">
+              <div>
+                <div className="flex items-center gap-2">
+                  <h3 className="text-xl font-bold text-slate-900">{selectedPatient.name}</h3>
+                  <span className="font-mono text-xs font-bold text-blue-700 bg-blue-50 px-2.5 py-0.5 rounded-full border border-blue-200">
+                    {selectedPatient.patientIdCode}
+                  </span>
+                </div>
+                <p className="text-xs text-slate-500 mt-1">
+                  Registered Patient Intake Profile • Registered on {selectedPatient.registrationDate}
+                </p>
+              </div>
+
+              {!isEditingProfile ? (
+                <button
+                  type="button"
+                  onClick={() => setIsEditingProfile(true)}
+                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold shadow-xs transition cursor-pointer self-start sm:self-auto"
+                >
+                  <Edit3 className="w-3.5 h-3.5" />
+                  <span>Update Profile Information</span>
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setIsEditingProfile(false)}
+                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold transition cursor-pointer self-start sm:self-auto"
+                >
+                  <X className="w-3.5 h-3.5" />
+                  <span>Cancel Editing</span>
+                </button>
+              )}
+            </div>
+
+            {/* Read-Only Profile Overview */}
+            {!isEditingProfile ? (
+              <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-6 text-xs">
+                {/* Personal Information */}
+                <div className="p-5 rounded-2xl bg-slate-50 border border-slate-200/70 space-y-3">
+                  <span className="font-bold text-slate-700 uppercase tracking-wider text-[11px] block">
+                    Personal Information
+                  </span>
+                  <div className="grid grid-cols-2 gap-y-2.5 text-slate-600">
+                    <div>
+                      <span className="text-slate-400 block text-[10px]">Email Address</span>
+                      <span className="font-semibold text-slate-900">{selectedPatient.email}</span>
+                    </div>
+                    <div>
+                      <span className="text-slate-400 block text-[10px]">Phone Number</span>
+                      <span className="font-semibold text-slate-900 font-mono">{selectedPatient.phone}</span>
+                    </div>
+                    <div>
+                      <span className="text-slate-400 block text-[10px]">Age / Gender</span>
+                      <span className="font-semibold text-slate-900">{selectedPatient.age} yrs • {selectedPatient.gender}</span>
+                    </div>
+                    <div>
+                      <span className="text-slate-400 block text-[10px]">Blood Group</span>
+                      <span className="font-semibold text-slate-900 font-mono">{selectedPatient.bloodGroup || 'Not specified'}</span>
+                    </div>
+                    <div className="col-span-2">
+                      <span className="text-slate-400 block text-[10px]">Residential Address</span>
+                      <span className="font-semibold text-slate-900">{selectedPatient.address || 'Not specified'}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Emergency Contact */}
+                <div className="p-5 rounded-2xl bg-slate-50 border border-slate-200/70 space-y-3">
+                  <span className="font-bold text-slate-700 uppercase tracking-wider text-[11px] block">
+                    Emergency Contact
+                  </span>
+                  <div className="space-y-2 text-slate-600">
+                    <div>
+                      <span className="text-slate-400 block text-[10px]">Contact Person</span>
+                      <span className="font-semibold text-slate-900">
+                        {selectedPatient.emergencyContact?.name || 'Not provided'} ({selectedPatient.emergencyContact?.relation || 'Family'})
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-slate-400 block text-[10px]">Emergency Phone</span>
+                      <span className="font-semibold text-slate-900 font-mono">
+                        {selectedPatient.emergencyContact?.phone || 'Not provided'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Medical History & Alerts */}
+                <div className="p-5 rounded-2xl bg-slate-50 border border-slate-200/70 space-y-3">
+                  <span className="font-bold text-slate-700 uppercase tracking-wider text-[11px] block">
+                    Medical Alerts &amp; Conditions
+                  </span>
+                  {selectedPatient.medicalAlerts && selectedPatient.medicalAlerts.length > 0 ? (
+                    <div className="flex flex-wrap gap-1.5">
+                      {selectedPatient.medicalAlerts.map((alert) => (
+                        <span key={alert} className="px-2.5 py-1 rounded-lg bg-rose-50 text-rose-800 border border-rose-200 font-semibold text-[11px]">
+                          {alert}
+                        </span>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-slate-500 text-xs italic">No pre-existing health conditions or medical alerts recorded.</p>
+                  )}
+                </div>
+
+                {/* Reason for Visit & Dental Concerns */}
+                <div className="p-5 rounded-2xl bg-slate-50 border border-slate-200/70 space-y-3">
+                  <span className="font-bold text-slate-700 uppercase tracking-wider text-[11px] block">
+                    Primary Dental Concern
+                  </span>
+                  <div>
+                    <span className="text-slate-400 block text-[10px]">Chief Complaint / Intake Reason</span>
+                    <p className="font-semibold text-slate-900 mt-0.5">{selectedPatient.chiefComplaint}</p>
+                  </div>
+                  {selectedPatient.previousDentalHistory && (
+                    <div className="pt-2 border-t border-slate-200/60">
+                      <span className="text-slate-400 block text-[10px]">Past Dental Treatment History</span>
+                      <p className="text-slate-700 mt-0.5">{selectedPatient.previousDentalHistory}</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            ) : (
+              /* Inline Profile Edit Form */
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  updatePatientProfile(selectedPatient.id, {
+                    phone: editPhone.trim(),
+                    address: editAddress.trim(),
+                    bloodGroup: editBloodGroup,
+                    emergencyContact: {
+                      name: editEmergencyName.trim(),
+                      phone: editEmergencyPhone.trim(),
+                      relation: editEmergencyRelation.trim()
+                    },
+                    medicalAlerts: editMedicalAlerts
+                  });
+                  setIsEditingProfile(false);
+                }}
+                className="mt-6 space-y-5 text-xs"
+              >
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-slate-700 font-semibold mb-1">Mobile Phone Number</label>
+                    <input
+                      type="tel"
+                      required
+                      value={editPhone}
+                      onChange={(e) => setEditPhone(e.target.value)}
+                      className="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl font-mono focus:border-blue-600 focus:outline-none"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-slate-700 font-semibold mb-1">Blood Group</label>
+                    <select
+                      value={editBloodGroup}
+                      onChange={(e) => setEditBloodGroup(e.target.value)}
+                      className="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl focus:border-blue-600 focus:outline-none font-mono"
+                    >
+                      {['O+', 'O-', 'A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'Unknown'].map((bg) => (
+                        <option key={bg} value={bg}>{bg}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="sm:col-span-2">
+                    <label className="block text-slate-700 font-semibold mb-1">Residential Address</label>
+                    <input
+                      type="text"
+                      value={editAddress}
+                      onChange={(e) => setEditAddress(e.target.value)}
+                      className="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl focus:border-blue-600 focus:outline-none"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-slate-700 font-semibold mb-1">Emergency Contact Name</label>
+                    <input
+                      type="text"
+                      value={editEmergencyName}
+                      onChange={(e) => setEditEmergencyName(e.target.value)}
+                      className="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl focus:border-blue-600 focus:outline-none"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-slate-700 font-semibold mb-1">Emergency Phone &amp; Relationship</label>
+                    <div className="grid grid-cols-2 gap-2">
+                      <input
+                        type="tel"
+                        value={editEmergencyPhone}
+                        onChange={(e) => setEditEmergencyPhone(e.target.value)}
+                        placeholder="Phone"
+                        className="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl font-mono focus:border-blue-600 focus:outline-none"
+                      />
+                      <input
+                        type="text"
+                        value={editEmergencyRelation}
+                        onChange={(e) => setEditEmergencyRelation(e.target.value)}
+                        placeholder="e.g. Spouse"
+                        className="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl focus:border-blue-600 focus:outline-none"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="pt-2 flex items-center justify-end gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setIsEditingProfile(false)}
+                    className="px-4 py-2 rounded-xl border border-slate-300 text-slate-700 hover:bg-slate-50 font-semibold cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold flex items-center gap-1.5 cursor-pointer shadow-xs"
+                  >
+                    <Save className="w-3.5 h-3.5" />
+                    <span>Save Profile Updates</span>
+                  </button>
+                </div>
+              </form>
+            )}
           </div>
         </div>
       )}

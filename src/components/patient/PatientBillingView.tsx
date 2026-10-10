@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useClinic } from '../../context/ClinicContext';
 import { Invoice, PaymentMethod } from '../../types/clinic';
+import { PaymentGatewayModal } from '../common/PaymentGatewayModal';
 import {
   DollarSign,
   Receipt,
@@ -12,8 +13,10 @@ import {
   ShieldCheck,
   Smartphone,
   ArrowRight,
+  ArrowLeft,
   Lock,
-  Wallet
+  Wallet,
+  ExternalLink
 } from 'lucide-react';
 
 export const PatientBillingView: React.FC = () => {
@@ -21,13 +24,11 @@ export const PatientBillingView: React.FC = () => {
     selectedPatient,
     invoices,
     recordPayment,
-    setActivePrintInvoice
+    setActivePrintInvoice,
+    setPatientTab
   } = useClinic();
 
   const [activePaymentInvoice, setActivePaymentInvoice] = useState<Invoice | null>(null);
-  const [payAmount, setPayAmount] = useState<number>(0);
-  const [payMethod, setPayMethod] = useState<PaymentMethod>('upi');
-  const [isProcessing, setIsProcessing] = useState(false);
 
   if (!selectedPatient) return null;
 
@@ -39,29 +40,44 @@ export const PatientBillingView: React.FC = () => {
 
   const handleOpenPay = (inv: Invoice) => {
     setActivePaymentInvoice(inv);
-    setPayAmount(inv.balanceDue);
-    setPayMethod('upi');
   };
 
-  const handleProcessCheckout = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!activePaymentInvoice || payAmount <= 0) return;
+  const handlePaymentSuccess = (
+    paidAmount: number,
+    method: PaymentMethod,
+    transactionId: string,
+    settledVia: 'phonepe' | 'gpay' | 'paytm' | 'upi' | 'card' | 'netbanking' | 'cash'
+  ) => {
+    if (!activePaymentInvoice) return;
 
-    setIsProcessing(true);
-    setTimeout(() => {
-      recordPayment(
-        activePaymentInvoice.id,
-        payAmount,
-        payMethod,
-        `Self-checkout via Patient Portal (${payMethod.toUpperCase()})`
-      );
-      setIsProcessing(false);
-      setActivePaymentInvoice(null);
-    }, 700);
+    recordPayment(
+      activePaymentInvoice.id,
+      paidAmount,
+      method,
+      `Online settlement via ${settledVia.toUpperCase()} (Patient Portal)`,
+      transactionId,
+      settledVia
+    );
   };
 
   return (
     <div className="space-y-8 max-w-6xl mx-auto pb-12">
+      {/* Top Back Navigation & Section Pill */}
+      <div className="flex items-center justify-between">
+        <button
+          type="button"
+          onClick={() => setPatientTab('patient-dashboard')}
+          className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white border border-slate-200/90 text-slate-700 hover:text-slate-900 hover:bg-slate-50 text-xs font-bold shadow-2xs transition cursor-pointer"
+        >
+          <ArrowLeft className="w-3.5 h-3.5" />
+          <span>Back to Dashboard</span>
+        </button>
+
+        <span className="text-xs font-bold text-slate-500">
+          Patient ID: <strong className="font-mono text-slate-800">{selectedPatient.patientIdCode}</strong>
+        </span>
+      </div>
+
       {/* Top Banner (Modern header styled matching image.png aesthetic) */}
       <div className="bg-white rounded-3xl sm:rounded-[2.5rem] border border-slate-200/80 p-6 sm:p-8 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-5">
         <div className="space-y-1">
@@ -70,16 +86,22 @@ export const PatientBillingView: React.FC = () => {
             <span>FINANCIAL LEDGER & BILLING</span>
           </div>
           <h2 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
-            Invoices, Receipts & Online Payments
+            My Invoices &amp; Instant UPI Settlements
           </h2>
           <p className="text-xs sm:text-sm text-slate-500 max-w-xl">
-            Itemized treatment fee breakdowns, payment receipts, and immediate 256-bit SSL encrypted digital settlement.
+            Itemized treatment fee breakdowns with instant PhonePe, Google Pay, UPI QR, and card settlements connected live to Dr. Smita's clinic ledger.
           </p>
         </div>
 
-        <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-slate-50 border border-slate-200/80 text-xs font-bold text-slate-700 self-start md:self-auto shadow-2xs">
-          <ShieldCheck className="w-4 h-4 text-emerald-600" />
-          <span>256-bit Encrypted Checkout</span>
+        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 self-start md:self-auto">
+          <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-purple-50 border border-purple-200 text-xs font-bold text-purple-900 shadow-2xs">
+            <span className="w-2 h-2 rounded-full bg-purple-600 animate-pulse"></span>
+            <span>PhonePe Gateway Active</span>
+          </div>
+          <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-blue-50 border border-blue-200 text-xs font-bold text-blue-900 shadow-2xs">
+            <span className="w-2 h-2 rounded-full bg-blue-600 animate-pulse"></span>
+            <span>Google Pay Active</span>
+          </div>
         </div>
       </div>
 
@@ -164,7 +186,7 @@ export const PatientBillingView: React.FC = () => {
             >
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-4">
                 <div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
                     <span className="font-mono text-xs font-black text-indigo-900 bg-indigo-50 border border-indigo-200 px-3 py-0.5 rounded-full">
                       #{inv.invoiceNumber}
                     </span>
@@ -179,21 +201,52 @@ export const PatientBillingView: React.FC = () => {
                     >
                       {inv.status}
                     </span>
+
+                    {/* Settled via PhonePe / GPay Badges */}
+                    {inv.settledVia === 'phonepe' && (
+                      <span className="px-3 py-0.5 rounded-full text-[10px] font-bold bg-purple-100 text-purple-800 border border-purple-200 flex items-center gap-1">
+                        <span>🟣 Settled via PhonePe</span>
+                        {inv.transactionId && <span className="font-mono font-normal">({inv.transactionId})</span>}
+                      </span>
+                    )}
+                    {inv.settledVia === 'gpay' && (
+                      <span className="px-3 py-0.5 rounded-full text-[10px] font-bold bg-blue-100 text-blue-800 border border-blue-200 flex items-center gap-1">
+                        <span>🔵 Settled via Google Pay</span>
+                        {inv.transactionId && <span className="font-mono font-normal">({inv.transactionId})</span>}
+                      </span>
+                    )}
+                    {inv.settledVia === 'upi' && (
+                      <span className="px-3 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200 flex items-center gap-1">
+                        <span>🟢 Settled via UPI QR</span>
+                        {inv.transactionId && <span className="font-mono font-normal">({inv.transactionId})</span>}
+                      </span>
+                    )}
+                    {inv.settledVia === 'card' && (
+                      <span className="px-3 py-0.5 rounded-full text-[10px] font-bold bg-indigo-100 text-indigo-800 border border-indigo-200 flex items-center gap-1">
+                        <span>💳 Settled via Card</span>
+                        {inv.transactionId && <span className="font-mono font-normal">({inv.transactionId})</span>}
+                      </span>
+                    )}
                   </div>
                   <div className="text-xs text-slate-500 mt-1.5">
                     Invoice Date: <strong className="text-slate-800">{inv.date}</strong> • Due Date:{' '}
                     <strong className="text-slate-800">{inv.dueDate}</strong>
+                    {inv.settledAt && (
+                      <span className="ml-2 text-emerald-700 font-medium">
+                        • Settled on: {new Date(inv.settledAt).toLocaleDateString()}
+                      </span>
+                    )}
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2 self-start sm:self-auto">
+                <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto">
                   {inv.balanceDue > 0 && (
                     <button
                       onClick={() => handleOpenPay(inv)}
-                      className="px-5 py-2.5 rounded-full bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white font-bold text-xs flex items-center gap-2 transition cursor-pointer shadow-sm shadow-indigo-500/25"
+                      className="px-5 py-2.5 rounded-full bg-gradient-to-r from-purple-600 via-indigo-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white font-bold text-xs flex items-center gap-2 transition cursor-pointer shadow-md shadow-indigo-500/25"
                     >
                       <CreditCard className="w-3.5 h-3.5" />
-                      <span>Pay Now (${inv.balanceDue.toFixed(2)})</span>
+                      <span>Pay via PhonePe / GPay (${inv.balanceDue.toFixed(2)})</span>
                     </button>
                   )}
 
@@ -265,79 +318,13 @@ export const PatientBillingView: React.FC = () => {
         )}
       </div>
 
-      {/* Online Checkout Simulator Modal */}
+      {/* Online PhonePe / Google Pay / Dynamic UPI Gateway Modal */}
       {activePaymentInvoice && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-xs animate-in fade-in">
-          <div className="bg-white rounded-3xl sm:rounded-[2rem] max-w-md w-full p-6 sm:p-8 shadow-2xl space-y-5 text-xs border border-slate-100">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <div>
-                <h3 className="font-black text-lg text-slate-900">Online Patient Checkout</h3>
-                <p className="text-[11px] text-slate-500 font-mono mt-0.5">Invoice #{activePaymentInvoice.invoiceNumber}</p>
-              </div>
-              <span className="font-mono font-bold text-emerald-800 bg-emerald-50 px-3 py-1 rounded-full border border-emerald-200 flex items-center gap-1 text-[10px]">
-                <Lock className="w-3 h-3 text-emerald-600" />
-                256-Bit SSL
-              </span>
-            </div>
-
-            <form onSubmit={handleProcessCheckout} className="space-y-4">
-              <div>
-                <label className="block font-bold text-slate-700 mb-1.5">Payment Amount ($)</label>
-                <input
-                  type="number"
-                  step="0.01"
-                  required
-                  min={1}
-                  max={activePaymentInvoice.balanceDue}
-                  value={payAmount}
-                  onChange={(e) => setPayAmount(Number(e.target.value))}
-                  className="w-full p-3 bg-slate-50 border border-slate-300 rounded-2xl font-mono text-lg font-black text-slate-900 focus:border-indigo-500 focus:outline-none"
-                />
-              </div>
-
-              <div>
-                <label className="block font-bold text-slate-700 mb-1.5">Select Payment Method</label>
-                <select
-                  value={payMethod}
-                  onChange={(e) => setPayMethod(e.target.value as PaymentMethod)}
-                  className="w-full p-3 bg-slate-50 border border-slate-300 rounded-2xl font-medium focus:border-indigo-500 focus:outline-none cursor-pointer"
-                >
-                  <option value="upi">UPI (Google Pay / PhonePe / Paytm / BHIM)</option>
-                  <option value="credit-card">Credit Card (Visa / Mastercard / Amex)</option>
-                  <option value="debit-card">Debit Card / ATM Pin</option>
-                  <option value="bank-transfer">Net Banking (NEFT / RTGS / IMPS)</option>
-                </select>
-              </div>
-
-              <div className="p-4 rounded-2xl bg-indigo-50/70 border border-indigo-150 text-indigo-950 space-y-1">
-                <div className="font-bold flex items-center gap-2 text-xs text-indigo-900">
-                  <Smartphone className="w-4 h-4 text-indigo-600" />
-                  <span>Immediate Ledger Settlement</span>
-                </div>
-                <p className="text-[11px] text-indigo-800/90 leading-relaxed">
-                  Completing this payment updates your balance in real time and automatically records the payment receipt in Dr. Smita's clinic ledger.
-                </p>
-              </div>
-
-              <div className="pt-2 flex justify-end gap-2.5">
-                <button
-                  type="button"
-                  onClick={() => setActivePaymentInvoice(null)}
-                  className="px-5 py-2.5 rounded-full border border-slate-300 text-slate-600 font-bold hover:bg-slate-50 transition cursor-pointer"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={isProcessing}
-                  className="px-6 py-2.5 rounded-full bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white font-bold transition flex items-center gap-2 cursor-pointer disabled:opacity-50 shadow-sm shadow-indigo-500/25"
-                >
-                  {isProcessing ? 'Processing Transaction...' : `Settle $${payAmount.toFixed(2)}`}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
+        <PaymentGatewayModal
+          invoice={activePaymentInvoice}
+          onClose={() => setActivePaymentInvoice(null)}
+          onSuccess={handlePaymentSuccess}
+        />
       )}
     </div>
   );

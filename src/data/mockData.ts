@@ -17,7 +17,8 @@ export const INITIAL_USERS: User[] = [
     phone: '+91 98200 11223',
     role: 'doctor',
     password: 'doctor123',
-    avatarUrl: 'https://images.unsplash.com/photo-1559839734-2b71ea197ec2?auto=format&fit=crop&w=400&q=80'
+    avatarUrl: 'https://images.unsplash.com/photo-1559839734-2b71ea197ec2?auto=format&fit=crop&w=400&q=80',
+    isProfileComplete: true
   },
   {
     id: 'user-pat-1',
@@ -26,7 +27,8 @@ export const INITIAL_USERS: User[] = [
     phone: '+91 98201 44521',
     role: 'patient',
     patientId: 'pat-1',
-    password: 'patient123'
+    password: 'patient123',
+    isProfileComplete: true
   },
   {
     id: 'user-pat-2',
@@ -35,7 +37,8 @@ export const INITIAL_USERS: User[] = [
     phone: '+91 97112 88900',
     role: 'patient',
     patientId: 'pat-2',
-    password: 'patient123'
+    password: 'patient123',
+    isProfileComplete: true
   },
   {
     id: 'user-pat-3',
@@ -44,7 +47,8 @@ export const INITIAL_USERS: User[] = [
     phone: '+91 98220 33410',
     role: 'patient',
     patientId: 'pat-3',
-    password: 'patient123'
+    password: 'patient123',
+    isProfileComplete: true
   },
   {
     id: 'user-pat-4',
@@ -53,7 +57,8 @@ export const INITIAL_USERS: User[] = [
     phone: '+91 98230 77612',
     role: 'patient',
     patientId: 'pat-4',
-    password: 'patient123'
+    password: 'patient123',
+    isProfileComplete: true
   }
 ];
 

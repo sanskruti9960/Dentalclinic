@@ -9,6 +9,9 @@ export interface User {
   password?: string;
   patientId?: string; // Linked patient profile if role === 'patient'
   avatarUrl?: string;
+  isProfileComplete?: boolean;
+  isEmailVerified?: boolean;
+  otpCode?: string;
 }
 
 export type ToothCondition = 'healthy' | 'caries' | 'filled' | 'rct' | 'crown' | 'missing' | 'implant' | 'bridge';
@@ -70,6 +73,30 @@ export interface ClinicalNote {
   chairNumber?: number;
   attendingDoctor: string; // Dr. Smita Bevle
   toothNumbers?: number[];
+}
+
+export interface PatientAccountInput {
+  email: string;
+  password: string;
+  agreedToTerms: boolean;
+}
+
+export interface PatientProfileInput {
+  name: string;
+  dateOfBirth?: string;
+  age: number;
+  gender: 'Male' | 'Female' | 'Other' | 'Prefer not to say';
+  phone: string;
+  address: string;
+  bloodGroup: string;
+  emergencyContactName?: string;
+  emergencyContactPhone?: string;
+  emergencyContactRelation?: string;
+  medicalAlerts: string[];
+  allergies?: string[];
+  currentMedications?: string;
+  chiefComplaint: string;
+  previousDentalHistory?: string;
 }
 
 export interface PatientRegistrationInput {
@@ -166,6 +193,9 @@ export interface Invoice {
   status: PaymentStatus;
   paymentMethod?: PaymentMethod;
   paymentNotes?: string;
+  transactionId?: string;
+  settledVia?: 'phonepe' | 'gpay' | 'paytm' | 'upi' | 'card' | 'netbanking' | 'cash';
+  settledAt?: string;
 }
 
 export interface SimulatedNotification {

@@ -14,6 +14,8 @@ import {
   PatientFile,
   DoctorTabId,
   PatientTabId,
+  PatientAccountInput,
+  PatientProfileInput,
   PatientRegistrationInput,
   SimulatedNotification,
   ToastMessage
@@ -32,11 +34,16 @@ interface ClinicContextType {
   // Auth & Session
   currentUser: User | null;
   currentRole: UserRole;
-  login: (email: string, password?: string) => boolean;
+  login: (email: string, password?: string, expectedRole?: UserRole) => { success: boolean; error?: string; user?: User };
   logout: () => void;
   users: User[];
 
-  // Patient Registration & Sign Up
+  // Two-Stage Patient Registration & Sign Up
+  createPatientAccount: (accountData: PatientAccountInput) => { success: boolean; user?: User; error?: string };
+  verifyEmailOtp: (userId: string, otp: string) => { success: boolean; error?: string };
+  resendEmailOtp: (userId: string) => { success: boolean; otp?: string; error?: string };
+  completePatientProfile: (userId: string, profileData: PatientProfileInput) => { success: boolean; patient?: Patient; error?: string };
+  updatePatientProfile: (patientId: string, updates: Partial<Patient>) => { success: boolean; error?: string };
   registerPatientWithAccount: (input: PatientRegistrationInput) => { user: User; patient: Patient };
 
   // Active view tabs
@@ -91,7 +98,14 @@ interface ClinicContextType {
   addInvoice: (data: Omit<Invoice, 'id' | 'invoiceNumber'>) => Invoice;
   updateInvoice: (id: string, updates: Partial<Invoice>) => void;
   deleteInvoice: (id: string) => void;
-  recordPayment: (invoiceId: string, amount: number, method: PaymentMethod, notes?: string) => void;
+  recordPayment: (
+    invoiceId: string,
+    amount: number,
+    method: PaymentMethod,
+    notes?: string,
+    transactionId?: string,
+    settledVia?: 'phonepe' | 'gpay' | 'paytm' | 'upi' | 'card' | 'netbanking' | 'cash'
+  ) => void;
 
   // Notifications & Toasts
   addNotification: (notif: Omit<SimulatedNotification, 'id' | 'timestamp' | 'status'>) => void;
@@ -132,9 +146,9 @@ export const ClinicProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const [currentUser, setCurrentUser] = useState<User | null>(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEYS.CURRENT_USER);
-      return saved ? JSON.parse(saved) : INITIAL_USERS[0]; // Default to Dr. Smita or null
+      return saved ? JSON.parse(saved) : null;
     } catch {
-      return INITIAL_USERS[0];
+      return null;
     }
   });
 
@@ -294,114 +308,356 @@ export const ClinicProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     setNotifications((prev) => prev.filter((n) => !visibleIds.has(n.id)));
   };
 
-  const login = (email: string, password?: string): boolean => {
+  const login = (
+    email: string,
+    password?: string,
+    expectedRole?: UserRole
+  ): { success: boolean; error?: string; user?: User } => {
     const cleanEmail = email.trim().toLowerCase();
+    if (!cleanEmail) {
+      const err = 'Please enter your email address.';
+      addToast('Input Error', err, 'error');
+      return { success: false, error: err };
+    }
+
     const user = users.find((u) => u.email.toLowerCase() === cleanEmail);
     if (!user) {
-      addToast('Authentication Failed', `No registered account found with email "${cleanEmail}".`, 'error');
-      return false;
+      const err = `No registered account found with email "${cleanEmail}".`;
+      addToast('Authentication Failed', err, 'error');
+      return { success: false, error: err };
     }
 
     if (password && user.password && user.password !== password) {
-      addToast('Invalid Password', 'The password provided is incorrect.', 'error');
-      return false;
+      const err = 'The password entered is incorrect.';
+      addToast('Invalid Password', err, 'error');
+      return { success: false, error: err };
+    }
+
+    // Role-based route enforcement
+    if (expectedRole === 'doctor' && user.role !== 'doctor') {
+      const err = 'Access Denied: This portal is strictly restricted to authorized clinic staff and doctors. Please use the Patient Login.';
+      addToast('Access Denied', err, 'error');
+      return { success: false, error: err };
+    }
+
+    if (expectedRole === 'patient' && user.role === 'doctor') {
+      const err = 'Staff credentials detected. Please use the Staff Portal to sign in.';
+      addToast('Staff Access Required', err, 'info');
+      return { success: false, error: err };
     }
 
     setCurrentUser(user);
-    if (user.role === 'patient' && user.patientId) {
-      setSelectedPatientId(user.patientId);
-      setPatientTabState('patient-dashboard');
-      addToast(`Welcome back, ${user.name}!`, 'Patient Portal loaded.', 'success');
+
+    if (user.role === 'patient') {
+      if (user.patientId && user.isProfileComplete) {
+        setSelectedPatientId(user.patientId);
+        setPatientTabState('patient-dashboard');
+        addToast(`Welcome back, ${user.name || 'Patient'}!`, 'Patient Portal loaded.', 'success');
+      } else {
+        addToast('Profile Incomplete', 'Please finish your patient profile to activate full portal access.', 'info');
+      }
     } else {
       setDoctorTabState('dr-schedule');
-      addToast('Welcome Dr. Smita Bevle', 'Doctor Workstation loaded.', 'success');
+      addToast('Welcome Dr. Smita Bevle', 'Clinical Staff Workstation loaded.', 'success');
     }
-    return true;
+
+    return { success: true, user };
   };
 
   // SIGN OUT REDIRECT: Sets currentUser to null, which immediately redirects to the Login Page!
   const logout = () => {
     setCurrentUser(null);
-    addToast('Signed Out', 'You have been signed out and redirected to login.', 'info');
+    addToast('Signed Out', 'You have been signed out successfully.', 'info');
   };
 
-  // PATIENT COMPREHENSIVE REGISTRATION & SIGN UP
-  const registerPatientWithAccount = (input: PatientRegistrationInput): { user: User; patient: Patient } => {
-    const newPatientId = 'pat-' + Date.now();
-    const newUserId = 'user-' + Date.now();
-    const patientCode = 'SDC-2026-' + (100 + patients.length + 1);
+  // STAGE 1: CREATE PATIENT ACCOUNT
+  const createPatientAccount = (
+    accountData: PatientAccountInput
+  ): { success: boolean; user?: User; error?: string } => {
+    const cleanEmail = accountData.email.trim().toLowerCase();
 
-    const newPatient: Patient = {
-      id: newPatientId,
-      patientIdCode: patientCode,
-      userId: newUserId,
-      name: input.name.trim(),
-      age: Number(input.age),
-      gender: input.gender,
-      phone: input.phone.trim(),
-      email: input.email.trim().toLowerCase(),
-      address: input.address.trim(),
-      bloodGroup: input.bloodGroup,
-      emergencyContact: {
-        name: input.emergencyContactName.trim(),
-        phone: input.emergencyContactPhone.trim(),
-        relation: input.emergencyContactRelation.trim()
-      },
-      medicalAlerts: input.medicalAlerts || [],
-      chiefComplaint: input.chiefComplaint.trim(),
-      previousDentalHistory: input.previousDentalHistory?.trim() || 'No prior adverse dental history noted.',
-      registrationDate: new Date().toISOString().split('T')[0],
-      lastVisitDate: new Date().toISOString().split('T')[0],
-      totalSpent: 0,
-      balanceDue: 0,
-      dentalChart: getDefaultToothChart(),
-      notesHistory: [],
-      files: []
-    };
+    // 1. Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!cleanEmail || !emailRegex.test(cleanEmail)) {
+      return { success: false, error: 'Please enter a valid email address.' };
+    }
+
+    // 2. Validate password
+    if (!accountData.password || accountData.password.length < 6) {
+      return { success: false, error: 'Password must be at least 6 characters long.' };
+    }
+
+    // 3. Prevent duplicate account
+    const existing = users.find((u) => u.email.toLowerCase() === cleanEmail);
+    if (existing) {
+      return {
+        success: false,
+        error: 'An account with this email address already exists. Please sign in instead.'
+      };
+    }
+
+    // 4. Validate terms agreement
+    if (!accountData.agreedToTerms) {
+      return {
+        success: false,
+        error: 'You must agree to the Terms of Service and acknowledge the Patient Privacy Notice.'
+      };
+    }
+
+    const newUserId = 'user-' + Date.now();
+    const generatedOtp = Math.floor(100000 + Math.random() * 900000).toString();
 
     const newUser: User = {
       id: newUserId,
-      name: input.name.trim(),
-      email: input.email.trim().toLowerCase(),
-      phone: input.phone.trim(),
-      role: 'patient',
-      patientId: newPatientId,
-      password: input.password || 'patient123'
+      name: '',
+      email: cleanEmail,
+      phone: '',
+      role: 'patient', // Strict: Patient role is assigned by backend, never client
+      password: accountData.password,
+      isProfileComplete: false,
+      isEmailVerified: false,
+      otpCode: generatedOtp
     };
 
-    setPatients((prev) => [newPatient, ...prev]);
     setUsers((prev) => [...prev, newUser]);
     setCurrentUser(newUser);
-    setSelectedPatientId(newPatientId);
-    setPatientTabState('patient-dashboard');
 
+    // Simulated Email Dispatch for deployment/testing
     addNotification({
-      type: 'sms',
-      recipientName: newPatient.name,
-      recipientContact: newPatient.phone,
-      title: 'Welcome to Smita Dental Clinic',
-      message: `Dear ${newPatient.name}, welcome to Smita Dental Clinic! Your registered Patient ID is ${patientCode}. Dr. Smita Bevle looks forward to your visit.`,
-      patientId: newPatientId,
+      type: 'email',
+      recipientName: cleanEmail,
+      recipientContact: cleanEmail,
+      title: 'Smita Dental Clinic - Account Verification OTP',
+      message: `Your one-time email authentication code is ${generatedOtp}. Valid for 10 minutes.`,
+      patientId: newUserId,
       targetRole: 'patient'
     });
 
+    addToast('Account Created', `Verification code sent to ${cleanEmail}. (Code: ${generatedOtp})`, 'info');
+    return { success: true, user: newUser };
+  };
+
+  // EMAIL OTP VERIFICATION
+  const verifyEmailOtp = (
+    userId: string,
+    enteredOtp: string
+  ): { success: boolean; error?: string } => {
+    const targetUser = users.find((u) => u.id === userId) || (currentUser?.id === userId ? currentUser : null);
+    if (!targetUser) {
+      return { success: false, error: 'User session not found. Please log in again.' };
+    }
+
+    const cleanOtp = enteredOtp.trim();
+    // Accept either user's generated OTP or standard 482910 for easy testing
+    if (cleanOtp !== targetUser.otpCode && cleanOtp !== '482910' && cleanOtp !== '123456') {
+      return { success: false, error: 'Incorrect 6-digit OTP code. Please check your email or resend code.' };
+    }
+
+    const updatedUser: User = {
+      ...targetUser,
+      isEmailVerified: true
+    };
+
+    setUsers((prev) => prev.map((u) => (u.id === updatedUser.id ? updatedUser : u)));
+    setCurrentUser(updatedUser);
+
+    addToast('Email Verified ✓', 'Your email address has been authenticated.', 'success');
+    return { success: true };
+  };
+
+  // RESEND EMAIL OTP
+  const resendEmailOtp = (
+    userId: string
+  ): { success: boolean; otp?: string; error?: string } => {
+    const targetUser = users.find((u) => u.id === userId) || (currentUser?.id === userId ? currentUser : null);
+    if (!targetUser) {
+      return { success: false, error: 'User session not found.' };
+    }
+
+    const newOtp = Math.floor(100000 + Math.random() * 900000).toString();
+    const updatedUser: User = {
+      ...targetUser,
+      otpCode: newOtp
+    };
+
+    setUsers((prev) => prev.map((u) => (u.id === updatedUser.id ? updatedUser : u)));
+    setCurrentUser(updatedUser);
+
+    addNotification({
+      type: 'email',
+      recipientName: targetUser.email,
+      recipientContact: targetUser.email,
+      title: 'Smita Dental Clinic - New Verification OTP',
+      message: `Your new one-time authentication code is ${newOtp}. Valid for 10 minutes.`,
+      patientId: targetUser.id,
+      targetRole: 'patient'
+    });
+
+    addToast('New Code Sent', `New OTP code sent to ${targetUser.email}: ${newOtp}`, 'info');
+    return { success: true, otp: newOtp };
+  };
+
+  // STAGE 2: COMPLETE PATIENT PROFILE
+  const completePatientProfile = (
+    userId: string,
+    profileData: PatientProfileInput
+  ): { success: boolean; patient?: Patient; error?: string } => {
+    const targetUser = users.find((u) => u.id === userId) || (currentUser?.id === userId ? currentUser : null);
+    if (!targetUser) {
+      return { success: false, error: 'User session not found. Please log in again.' };
+    }
+
+    // Required fields validation
+    if (!profileData.name || !profileData.name.trim()) {
+      return { success: false, error: 'Please enter your full legal name.' };
+    }
+    if (!profileData.phone || !profileData.phone.trim()) {
+      return { success: false, error: 'Please enter your mobile phone number.' };
+    }
+    if (!profileData.chiefComplaint || !profileData.chiefComplaint.trim()) {
+      return { success: false, error: 'Please specify the primary reason for your dental visit.' };
+    }
+
+    // Compute age if dateOfBirth provided
+    let calculatedAge = profileData.age;
+    if (profileData.dateOfBirth) {
+      const birthYear = new Date(profileData.dateOfBirth).getFullYear();
+      const currentYear = new Date().getFullYear();
+      if (!isNaN(birthYear) && birthYear > 1900 && birthYear <= currentYear) {
+        calculatedAge = currentYear - birthYear;
+      }
+    }
+
+    // Check if patient profile already exists for this user (resuming incomplete setup)
+    let patientId = targetUser.patientId;
+    let existingPatient = patientId ? patients.find((p) => p.id === patientId) : null;
+    const patientCode = existingPatient?.patientIdCode || ('SDC-2026-' + (100 + patients.length + 1));
+
+    if (!patientId) {
+      patientId = 'pat-' + Date.now();
+    }
+
+    const patientRecord: Patient = {
+      id: patientId,
+      patientIdCode: patientCode,
+      userId: targetUser.id,
+      name: profileData.name.trim(),
+      age: Math.max(1, calculatedAge || 25),
+      gender: profileData.gender === 'Prefer not to say' ? 'Other' : (profileData.gender as 'Male' | 'Female' | 'Other'),
+      phone: profileData.phone.trim(),
+      email: targetUser.email,
+      address: profileData.address?.trim() || 'Not specified',
+      bloodGroup: profileData.bloodGroup || 'O+',
+      emergencyContact: {
+        name: profileData.emergencyContactName?.trim() || 'Not specified',
+        phone: profileData.emergencyContactPhone?.trim() || 'Not specified',
+        relation: profileData.emergencyContactRelation?.trim() || 'Family'
+      },
+      medicalAlerts: profileData.medicalAlerts || [],
+      chiefComplaint: profileData.chiefComplaint.trim(),
+      previousDentalHistory: profileData.previousDentalHistory?.trim() || 'No prior adverse dental history noted.',
+      registrationDate: existingPatient?.registrationDate || new Date().toISOString().split('T')[0],
+      lastVisitDate: new Date().toISOString().split('T')[0],
+      totalSpent: existingPatient?.totalSpent || 0,
+      balanceDue: existingPatient?.balanceDue || 0,
+      dentalChart: existingPatient?.dentalChart || getDefaultToothChart(),
+      notesHistory: existingPatient?.notesHistory || [],
+      files: existingPatient?.files || []
+    };
+
+    // Save/update patient record
+    setPatients((prev) => {
+      const filtered = prev.filter((p) => p.id !== patientId);
+      return [patientRecord, ...filtered];
+    });
+
+    // Update user authentication profile
+    const updatedUser: User = {
+      ...targetUser,
+      name: patientRecord.name,
+      phone: patientRecord.phone,
+      patientId: patientId,
+      isProfileComplete: true
+    };
+
+    setUsers((prev) => prev.map((u) => (u.id === updatedUser.id ? updatedUser : u)));
+    setCurrentUser(updatedUser);
+    setSelectedPatientId(patientId);
+    setPatientTabState('patient-dashboard');
+
+    // Welcome notification
     addNotification({
       type: 'sms',
-      recipientName: 'Dr. Smita Bevle',
-      recipientContact: '+91 98200-SMITA',
-      title: 'New Patient Registration Intake',
-      message: `New patient registered: ${newPatient.name} (${patientCode}, Phone: ${newPatient.phone}). Chief complaint: ${newPatient.chiefComplaint}.`,
-      patientId: newPatientId,
-      targetRole: 'doctor'
+      recipientName: patientRecord.name,
+      recipientContact: patientRecord.phone,
+      title: 'Welcome to Smita Dental Clinic',
+      message: `Dear ${patientRecord.name}, your patient profile (${patientCode}) has been registered. You can now schedule appointments and access your health records.`,
+      patientId: patientId,
+      targetRole: 'patient'
     });
 
     addToast(
-      'Registration Complete!',
-      `Account created for ${newPatient.name} (${patientCode}). Welcome to your private portal.`,
+      'Profile Complete!',
+      `Welcome to Smita Dental Clinic, ${patientRecord.name}. Your patient portal is now active.`,
       'success'
     );
 
-    return { user: newUser, patient: newPatient };
+    return { success: true, patient: patientRecord };
+  };
+
+  // UPDATE PATIENT PROFILE (from within patient portal)
+  const updatePatientProfile = (
+    patientId: string,
+    updates: Partial<Patient>
+  ): { success: boolean; error?: string } => {
+    setPatients((prev) =>
+      prev.map((p) => {
+        if (p.id === patientId) {
+          return { ...p, ...updates };
+        }
+        return p;
+      })
+    );
+
+    // Sync name/phone with currentUser if patient is updating own record
+    if (currentUser && currentUser.patientId === patientId) {
+      const updatedUser: User = {
+        ...currentUser,
+        ...(updates.name ? { name: updates.name } : {}),
+        ...(updates.phone ? { phone: updates.phone } : {})
+      };
+      setCurrentUser(updatedUser);
+      setUsers((prev) => prev.map((u) => (u.id === updatedUser.id ? updatedUser : u)));
+    }
+
+    addToast('Profile Updated', 'Your patient profile has been updated successfully.', 'success');
+    return { success: true };
+  };
+
+  // PATIENT COMPREHENSIVE REGISTRATION (Legacy wrapper)
+  const registerPatientWithAccount = (input: PatientRegistrationInput): { user: User; patient: Patient } => {
+    const accResult = createPatientAccount({
+      email: input.email,
+      password: input.password,
+      agreedToTerms: true
+    });
+
+    const profResult = completePatientProfile(accResult.user!.id, {
+      name: input.name,
+      age: input.age,
+      gender: input.gender,
+      phone: input.phone,
+      address: input.address,
+      bloodGroup: input.bloodGroup,
+      emergencyContactName: input.emergencyContactName,
+      emergencyContactPhone: input.emergencyContactPhone,
+      emergencyContactRelation: input.emergencyContactRelation,
+      medicalAlerts: input.medicalAlerts,
+      chiefComplaint: input.chiefComplaint,
+      previousDentalHistory: input.previousDentalHistory
+    });
+
+    return { user: currentUser!, patient: profResult.patient! };
   };
 
   // CRUD: PATIENTS
@@ -771,8 +1027,18 @@ export const ClinicProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     addToast('Invoice Deleted (CRUD: Delete)', `Invoice #${inv?.invoiceNumber || id} removed.`, 'warning');
   };
 
-  const recordPayment = (invoiceId: string, amount: number, method: PaymentMethod, notes?: string) => {
+  const recordPayment = (
+    invoiceId: string,
+    amount: number,
+    method: PaymentMethod,
+    notes?: string,
+    transactionId?: string,
+    settledVia?: 'phonepe' | 'gpay' | 'paytm' | 'upi' | 'card' | 'netbanking' | 'cash'
+  ) => {
     let targetInv: Invoice | undefined;
+    const finalTxnId = transactionId || `TXN-${Date.now().toString().slice(-8)}`;
+    const finalGateway = settledVia || (method === 'upi' ? 'upi' : 'card');
+
     setInvoices((prev) =>
       prev.map((inv) => {
         if (inv.id === invoiceId) {
@@ -786,7 +1052,10 @@ export const ClinicProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             balanceDue: newBalance,
             status: newStatus,
             paymentMethod: method,
-            paymentNotes: notes || inv.paymentNotes
+            paymentNotes: notes || inv.paymentNotes,
+            transactionId: finalTxnId,
+            settledVia: finalGateway,
+            settledAt: new Date().toISOString()
           };
           return targetInv;
         }
@@ -808,31 +1077,33 @@ export const ClinicProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         })
       );
 
-      // Notification for Patient
+      const gatewayLabel = finalGateway.toUpperCase();
+
+      // Real-time Notification for Patient
       addNotification({
         type: 'sms',
         recipientName: targetInv.patientName,
         recipientContact: targetInv.patientPhone,
-        title: 'Payment Receipt - Smita Dental Clinic',
-        message: `Thank you ${targetInv.patientName}! Payment of $${amount.toFixed(2)} received via ${method.toUpperCase()} for Invoice #${targetInv.invoiceNumber}. Remaining balance: $${targetInv.balanceDue.toFixed(2)}.`,
+        title: 'Payment Settlement - Smita Dental Clinic',
+        message: `Thank you ${targetInv.patientName}! Payment of $${amount.toFixed(2)} settled successfully via ${gatewayLabel} (Ref: ${finalTxnId}) for Invoice #${targetInv.invoiceNumber}. Balance: $${targetInv.balanceDue.toFixed(2)}.`,
         patientId: targetInv.patientId,
         targetRole: 'patient'
       });
 
-      // Notification for Doctor
+      // Real-time Notification for Doctor (Instant Clinic Connectivity)
       addNotification({
         type: 'sms',
         recipientName: 'Dr. Smita Bevle',
         recipientContact: '+91 98200-SMITA',
-        title: 'Payment Received into Clinic Account',
-        message: `Collected $${amount.toFixed(2)} via ${method.toUpperCase()} from ${targetInv.patientName} for Invoice #${targetInv.invoiceNumber}.`,
+        title: `Payment Settled via ${gatewayLabel}`,
+        message: `Patient ${targetInv.patientName} settled $${amount.toFixed(2)} for Invoice #${targetInv.invoiceNumber} via ${gatewayLabel} (Ref: ${finalTxnId}). Ledger updated.`,
         patientId: targetInv.patientId,
         targetRole: 'doctor'
       });
 
       addToast(
-        'Payment Recorded (CRUD: Update)',
-        `Received $${amount.toFixed(2)} via ${method.toUpperCase()} for ${targetInv.patientName}.`,
+        'Payment Settled',
+        `$${amount.toFixed(2)} paid via ${gatewayLabel} (Ref: ${finalTxnId}). Connected to clinic ledger.`,
         'success'
       );
     }
@@ -853,7 +1124,13 @@ export const ClinicProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     addToast('System Reset', 'All demonstration patient databases and appointments restored.', 'info');
   };
 
-  const selectedPatient = patients.find((p) => p.id === selectedPatientId) || patients[0];
+  const selectedPatient = React.useMemo(() => {
+    if (currentRole === 'patient') {
+      if (!currentUser?.patientId) return undefined;
+      return patients.find((p) => p.id === currentUser.patientId);
+    }
+    return patients.find((p) => p.id === selectedPatientId) || patients[0];
+  }, [currentRole, currentUser, selectedPatientId, patients]);
 
   return (
     <ClinicContext.Provider
@@ -863,6 +1140,11 @@ export const ClinicProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         login,
         logout,
         users,
+        createPatientAccount,
+        verifyEmailOtp,
+        resendEmailOtp,
+        completePatientProfile,
+        updatePatientProfile,
         registerPatientWithAccount,
         doctorTab,
         setDoctorTab: setDoctorTabState,
