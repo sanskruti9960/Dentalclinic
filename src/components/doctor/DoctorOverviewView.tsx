@@ -20,6 +20,8 @@ import {
   Layers,
   FileText
 } from 'lucide-react';
+import doctorHeroImg from '../../assets/images/doctor_hero_operatory_1790246536636.jpg';
+import dentalLabImg from '../../assets/images/dental_lab_research_1790246552592.jpg';
 
 export const DoctorOverviewView: React.FC = () => {
   const {
@@ -47,7 +49,7 @@ export const DoctorOverviewView: React.FC = () => {
       <div className="relative rounded-3xl sm:rounded-[2.5rem] overflow-hidden min-h-[440px] sm:min-h-[500px] flex flex-col justify-between p-6 sm:p-10 shadow-lg shadow-indigo-950/5">
         {/* Background Image: Generated Operatory Dental Surgeon */}
         <img
-          src="/src/assets/images/doctor_hero_operatory_1790246536636.jpg"
+          src={doctorHeroImg}
           alt="Dr. Smita Bevle Dental Operatory"
           className="absolute inset-0 w-full h-full object-cover object-center"
         />
@@ -366,7 +368,7 @@ export const DoctorOverviewView: React.FC = () => {
           {/* Left: Laboratory Photo with Learn More */}
           <div className="lg:col-span-5 relative rounded-3xl sm:rounded-[2.5rem] overflow-hidden min-h-[280px] shadow-sm">
             <img
-              src="/src/assets/images/dental_lab_research_1790246552592.jpg"
+              src={dentalLabImg}
               alt="Dental lab precision research"
               className="absolute inset-0 w-full h-full object-cover object-center"
             />

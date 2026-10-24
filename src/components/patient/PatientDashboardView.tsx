@@ -25,6 +25,8 @@ import {
   Syringe,
   Microscope
 } from 'lucide-react';
+import patientHeroImg from '../../assets/images/patient_hero_dental_1790246517764.jpg';
+import dentalLabImg from '../../assets/images/dental_lab_research_1790246552592.jpg';
 
 export const PatientDashboardView: React.FC = () => {
   const {
@@ -66,7 +68,7 @@ export const PatientDashboardView: React.FC = () => {
       <div className="relative rounded-3xl sm:rounded-[2.5rem] overflow-hidden min-h-[440px] sm:min-h-[500px] flex flex-col justify-between p-6 sm:p-10 shadow-lg shadow-indigo-950/5">
         {/* Background Image: Generated High-Res Dental Exam */}
         <img
-          src="/src/assets/images/patient_hero_dental_1790246517764.jpg"
+          src={patientHeroImg}
           alt="Gentle modern dental care"
           className="absolute inset-0 w-full h-full object-cover object-center"
         />
@@ -285,7 +287,7 @@ export const PatientDashboardView: React.FC = () => {
           {/* Left: Laboratory Photo with Learn More pill (as in screenshot) */}
           <div className="lg:col-span-5 relative rounded-3xl sm:rounded-[2.5rem] overflow-hidden min-h-[280px] shadow-sm">
             <img
-              src="/src/assets/images/dental_lab_research_1790246552592.jpg"
+              src={dentalLabImg}
               alt="High precision dental laboratory"
               className="absolute inset-0 w-full h-full object-cover object-center"
             />
